@@ -10,4 +10,5 @@ dependencies:
   - matplotlib
   - statsmodels
   - numba
-  - arch
+  # - arch
+  # - numba
