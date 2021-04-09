@@ -2,6 +2,7 @@ name: base
 channels:
   - defaults
   - conda-forge
+  - pypi
 dependencies:
   - jupyter_contrib_nbextensions
   - numpy
@@ -10,5 +11,4 @@ dependencies:
   - matplotlib
   - statsmodels
   - numba
-  - pip:
-    - arch
+  - arch
