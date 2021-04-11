@@ -1,0 +1,183 @@
+{
+  "version":"1.0",
+  "data":{
+    "sheets":[
+      {
+        "name":"Sheet",
+        "blocks":[
+          {
+            "type":"MD",
+            "text":"### Setup",
+            "outputs":[
+              
+            ],
+            "language":"MARKDOWN",
+            "inputCollapsed":false,
+            "outputCollapsed":false
+          },
+          {
+            "type":"CODE",
+            "text":"# Main\nimport numpy as np\nimport pandas as pd\n\n# Unit root\nfrom quantileADF import QADF\nfrom report import countryReport, reportCountries\n\n# Utilities\nimport warnings\nfrom statsmodels.tools.sm_exceptions import IterationLimitWarning\nwarnings.simplefilter('ignore', IterationLimitWarning)\npd.set_option('display.max_rows', 500)\n\n# Setting up Urls\nrepoUrl = 'https:\/\/raw.githubusercontent.com\/vlad-yeghiazaryan\/QADF\/master\/data\/'\ndatasetUrl = repoUrl + 'dataset.csv'\nbroadREERsUrl = repoUrl + 'broadREERs.csv'\nnarrowREERsUrl = repoUrl + 'narrowREERs.csv'",
+            "outputs":[
+              {
+                "stdout":"",
+                "stderr":"",
+                "outputReprs":[
+                  
+                ],
+                "displayData":[
+                  
+                ]
+              }
+            ],
+            "language":"PYTHON",
+            "inputCollapsed":false,
+            "outputCollapsed":false
+          },
+          {
+            "type":"MD",
+            "text":"### Report",
+            "outputs":[
+              
+            ],
+            "language":"MARKDOWN",
+            "inputCollapsed":false,
+            "outputCollapsed":false
+          },
+          {
+            "type":"CODE",
+            "text":"broadREERs = pd.read_csv(broadREERsUrl, index_col=0, parse_dates=True)\nnarrowREERs = pd.read_csv(narrowREERsUrl, index_col=0, parse_dates=True)\n\n# Extracting country information\ncountries = ['Armenia', 'Belarus', 'Kazakhstan', 'Kyrgyz Republic',\n             'Moldova', 'Russian Federation', 'Tajikistan', 'Ukraine']\n\nstartDate = '2000-01-01'\nstartDateWithoutTaj = '1995-01-01'\n\ndataNarrow =  narrowREERs[countries].loc[startDate:]\ndataNarrow.index.freq = 'MS'\n\ndata = broadREERs[countries].loc[startDate:]\ndata.index.freq = 'MS'\n\ndata.info()",
+            "outputs":[
+              {
+                "stdout":"<class 'pandas.core.frame.DataFrame'>\nDatetimeIndex: 251 entries, 2000-01-01 to 2020-11-01\nFreq: MS\nData columns (total 8 columns):\n #   Column              Non-Null Count  Dtype  \n---  ------              --------------  -----  \n 0   Armenia             251 non-null    float64\n 1   Belarus             251 non-null    float64\n 2   Kazakhstan          251 non-null    float64\n 3   Kyrgyz Republic     251 non-null    float64\n 4   Moldova             251 non-null    float64\n 5   Russian Federation  251 non-null    float64\n 6   Tajikistan          251 non-null    float64\n 7   Ukraine             251 non-null    float64\ndtypes: float64(8)\nmemory usage: 17.6 KB\n",
+                "stderr":"",
+                "outputReprs":[
+                  
+                ],
+                "displayData":[
+                  
+                ]
+              }
+            ],
+            "language":"PYTHON",
+            "inputCollapsed":false,
+            "outputCollapsed":false
+          },
+          {
+            "type":"CODE",
+            "text":"data.head(2)",
+            "outputs":[
+              {
+                "stdout":"",
+                "stderr":"",
+                "outputReprs":[
+                  
+                ],
+                "displayData":[
+                  {
+                    "html":"<div>\n<style scoped>\n    .dataframe tbody tr th:only-of-type {\n        vertical-align: middle;\n    }\n\n    .dataframe tbody tr th {\n        vertical-align: top;\n    }\n\n    .dataframe thead th {\n        text-align: right;\n    }\n<\/style>\n<table border=\"1\" class=\"dataframe\">\n  <thead>\n    <tr style=\"text-align: right;\">\n      <th><\/th>\n      <th>Armenia<\/th>\n      <th>Belarus<\/th>\n      <th>Kazakhstan<\/th>\n      <th>Kyrgyz Republic<\/th>\n      <th>Moldova<\/th>\n      <th>Russian Federation<\/th>\n      <th>Tajikistan<\/th>\n      <th>Ukraine<\/th>\n    <\/tr>\n    <tr>\n      <th>Date<\/th>\n      <th><\/th>\n      <th><\/th>\n      <th><\/th>\n      <th><\/th>\n      <th><\/th>\n      <th><\/th>\n      <th><\/th>\n      <th><\/th>\n    <\/tr>\n  <\/thead>\n  <tbody>\n    <tr>\n      <th>2000-01-01<\/th>\n      <td>67.584163<\/td>\n      <td>121.249657<\/td>\n      <td>77.580923<\/td>\n      <td>76.395403<\/td>\n      <td>67.088115<\/td>\n      <td>47.243677<\/td>\n      <td>110.087088<\/td>\n      <td>74.340017<\/td>\n    <\/tr>\n    <tr>\n      <th>2000-02-01<\/th>\n      <td>68.494432<\/td>\n      <td>109.552717<\/td>\n      <td>78.210787<\/td>\n      <td>76.987894<\/td>\n      <td>66.917751<\/td>\n      <td>47.791244<\/td>\n      <td>109.455091<\/td>\n      <td>75.456058<\/td>\n    <\/tr>\n  <\/tbody>\n<\/table>\n<\/div>",
+                    "type":"html"
+                  }
+                ]
+              }
+            ],
+            "language":"PYTHON",
+            "inputCollapsed":false,
+            "outputCollapsed":false
+          },
+          {
+            "type":"CODE",
+            "text":"levels=[0.01,0.05,0.1]\nquantiles = np.arange(0.1, 1, 0.1)\ndrop = ['δ²', 'Lags', 'ρ₁(OLS)', 'CV1%', 'CV5%', 'CV10%']\nqadf = QADF(model='c', pmax=12, ic='AIC')\nreps = 1000",
+            "outputs":[
+              {
+                "stdout":"",
+                "stderr":"",
+                "outputReprs":[
+                  
+                ],
+                "displayData":[
+                  
+                ]
+              }
+            ],
+            "language":"PYTHON",
+            "inputCollapsed":false,
+            "outputCollapsed":false
+          },
+          {
+            "type":"CODE",
+            "text":"# Broad EAEU levels\nresults, report = reportCountries(data, qadf, quantiles, repetitions=reps, \n                                  significanceLevels=levels, dropColumns=drop)\nreport.to_excel('Outputs\/report.xlsx', float_format=\"%.3f\")\n\n# Broad EAEU logs\nlogResults, logReport = reportCountries(data.apply(np.log, axis=1), qadf, quantiles, repetitions=reps, \n                                  significanceLevels=levels, dropColumns=drop)\nlogReport.to_excel('Outputs\/logReport.xlsx', float_format=\"%.3f\")\n\n# Narrow EAEU levels\nnarrowResults, narrowReport = reportCountries(dataNarrow, qadf, quantiles, repetitions=reps, \n                                  significanceLevels=levels, dropColumns=drop)\nnarrowReport.to_excel('Outputs\/narrowReport.xlsx', float_format=\"%.3f\")\n\n# Narrow EAEU logs\nlogNarrowResults, logNarrowReport = reportCountries(dataNarrow.apply(np.log, axis=1), qadf, quantiles, \n                                                    repetitions=reps, significanceLevels=levels, dropColumns=drop)\nlogNarrowReport.to_excel('Outputs\/logNarrowReport.xlsx', float_format=\"%.3f\")",
+            "outputs":[
+              {
+                "stdout":"Starting Execution:\n\nArmenia finished in: 980.87s\nBelarus finished in: 1642.19s\nKazakhstan finished in: 971.18s\nKyrgyz Republic finished in: 986.2s\nMoldova finished in: 995.4s\nRussian Federation finished in: 1196.91s\nTajikistan finished in: 1015.17s\nUkraine finished in: 1095.64s\n\nTotal time spent executing: 148m, 4s\nStarting Execution:\n\nArmenia finished in: 905.76s\nBelarus finished in: 1525.62s\nKazakhstan finished in: 911.5s\nKyrgyz Republic finished in: 919.09s\nMoldova finished in: 939.34s\nRussian Federation finished in: 1156.84s\nTajikistan finished in: 945.52s\nUkraine finished in: 881.44s\n\nTotal time spent executing: 136m, 25s\nStarting Execution:\n\nArmenia finished in: 977.43s\nBelarus finished in: 1731.59s\nKazakhstan finished in: 1569.72s\nKyrgyz Republic finished in: 1239.33s\nMoldova finished in: 999.35s\nRussian Federation finished in: 1210.69s\nTajikistan finished in: 1028.75s\nUkraine finished in: 1100.38s\n\nTotal time spent executing: 164m, 17s\nStarting Execution:\n\nArmenia finished in: 919.17s\nBelarus finished in: 1918.94s\nKazakhstan finished in: 1552.05s\nKyrgyz Republic finished in: 938.72s\nMoldova finished in: 1807.94s\nRussian Federation finished in: 3512.6s\nTajikistan finished in: 2862.4s\nUkraine finished in: 2649.22s\n\nTotal time spent executing: 269m, 21s\n",
+                "stderr":"",
+                "outputReprs":[
+                  
+                ],
+                "displayData":[
+                  
+                ]
+              }
+            ],
+            "language":"PYTHON",
+            "inputCollapsed":false,
+            "outputCollapsed":false
+          },
+          {
+            "type":"CODE",
+            "text":"logNarrowReport",
+            "outputs":[
+              {
+                "stdout":"",
+                "stderr":"",
+                "outputReprs":[
+                  
+                ],
+                "displayData":[
+                  {
+                    "html":"<div>\n<style scoped>\n    .dataframe tbody tr th:only-of-type {\n        vertical-align: middle;\n    }\n\n    .dataframe tbody tr th {\n        vertical-align: top;\n    }\n\n    .dataframe thead th {\n        text-align: right;\n    }\n<\/style>\n<table border=\"1\" class=\"dataframe\">\n  <thead>\n    <tr style=\"text-align: right;\">\n      <th><\/th>\n      <th>quantile<\/th>\n      <th>0.1<\/th>\n      <th>0.2<\/th>\n      <th>0.3<\/th>\n      <th>0.4<\/th>\n      <th>0.5<\/th>\n      <th>0.6<\/th>\n      <th>0.7<\/th>\n      <th>0.8<\/th>\n      <th>0.9<\/th>\n    <\/tr>\n    <tr>\n      <th>Countries<\/th>\n      <th>Variable\/Quantile<\/th>\n      <th><\/th>\n      <th><\/th>\n      <th><\/th>\n      <th><\/th>\n      <th><\/th>\n      <th><\/th>\n      <th><\/th>\n      <th><\/th>\n      <th><\/th>\n    <\/tr>\n  <\/thead>\n  <tbody>\n    <tr>\n      <th rowspan=\"5\" valign=\"top\">Armenia<\/th>\n      <th>α₀(τ)<\/th>\n      <td>-0.03(0.114)<\/td>\n      <td>-0.02(0.115)<\/td>\n      <td>0.0(0.238)<\/td>\n      <td>-0.0(0.133)<\/td>\n      <td>0.07(0.379)<\/td>\n      <td>0.05(0.457)<\/td>\n      <td>0.06(0.402)<\/td>\n      <td>0.1(0.316)<\/td>\n      <td>0.07(0.485)<\/td>\n    <\/tr>\n    <tr>\n      <th>ρ₁(τ)<\/th>\n      <td>1.0(0.862)<\/td>\n      <td>1.0(0.878)<\/td>\n      <td>1.0(0.738)<\/td>\n      <td>1.0(0.855)<\/td>\n      <td>0.99(0.391)<\/td>\n      <td>0.99(0.476)<\/td>\n      <td>0.99(0.397)<\/td>\n      <td>0.98(0.319)<\/td>\n      <td>0.99(0.533)<\/td>\n    <\/tr>\n    <tr>\n      <th>Half-lives (years)<\/th>\n      <td>∞<\/td>\n      <td>∞<\/td>\n      <td>22<\/td>\n      <td>∞<\/td>\n      <td>4<\/td>\n      <td>6<\/td>\n      <td>5<\/td>\n      <td>3<\/td>\n      <td>6<\/td>\n    <\/tr>\n    <tr>\n      <th>tₙ(τ)<\/th>\n      <td>0.08(0.874)<\/td>\n      <td>0.08(0.882)<\/td>\n      <td>-0.28(0.78)<\/td>\n      <td>0.03(0.877)<\/td>\n      <td>-1.67(0.313)<\/td>\n      <td>-1.18(0.404)<\/td>\n      <td>-1.63(0.218)<\/td>\n      <td>-1.63(0.254)<\/td>\n      <td>-0.77(0.493)<\/td>\n    <\/tr>\n    <tr>\n      <th>QKS<\/th>\n      <td>1.67(0.674)<\/td>\n      <td><\/td>\n      <td><\/td>\n      <td><\/td>\n      <td><\/td>\n      <td><\/td>\n      <td><\/td>\n      <td><\/td>\n      <td><\/td>\n    <\/tr>\n    <tr>\n      <th rowspan=\"5\" valign=\"top\">Belarus<\/th>\n      <th>α₀(τ)<\/th>\n      <td>0.05(0.396)<\/td>\n      <td>-0.01(0.142)<\/td>\n      <td>0.01(0.252)<\/td>\n      <td>0.04(0.472)<\/td>\n      <td>0.05(0.485)<\/td>\n      <td>0.07(0.435)<\/td>\n      <td>-0.0(0.115)<\/td>\n      <td>-0.01(0.069)<\/td>\n      <td>0.01(0.143)<\/td>\n    <\/tr>\n    <tr>\n      <th>ρ₁(τ)<\/th>\n      <td>0.98(0.575)<\/td>\n      <td>1.0(0.818)<\/td>\n      <td>0.99(0.716)<\/td>\n      <td>0.99(0.523)<\/td>\n      <td>0.99(0.483)<\/td>\n      <td>0.99(0.41)<\/td>\n      <td>1.0(0.87)<\/td>\n      <td>1.01(0.901)<\/td>\n      <td>1.0(0.823)<\/td>\n    <\/tr>\n    <tr>\n      <th>Half-lives (years)<\/th>\n      <td>3<\/td>\n      <td>32<\/td>\n      <td>12<\/td>\n      <td>5<\/td>\n      <td>6<\/td>\n      <td>4<\/td>\n      <td>∞<\/td>\n      <td>∞<\/td>\n      <td>∞<\/td>\n    <\/tr>\n    <tr>\n      <th>tₙ(τ)<\/th>\n      <td>-0.4(0.637)<\/td>\n      <td>-0.09(0.85)<\/td>\n      <td>-0.28(0.784)<\/td>\n      <td>-0.72(0.603)<\/td>\n      <td>-0.74(0.561)<\/td>\n      <td>-1.08(0.439)<\/td>\n      <td>0.24(0.868)<\/td>\n      <td>0.57(0.912)<\/td>\n      <td>0.16(0.813)<\/td>\n    <\/tr>\n    <tr>\n      <th>QKS<\/th>\n      <td>1.08(0.883)<\/td>\n      <td><\/td>\n      <td><\/td>\n      <td><\/td>\n      <td><\/td>\n      <td><\/td>\n      <td><\/td>\n      <td><\/td>\n      <td><\/td>\n    <\/tr>\n    <tr>\n      <th rowspan=\"5\" valign=\"top\">Kazakhstan<\/th>\n      <th>α₀(τ)<\/th>\n      <td>0.12(0.182)<\/td>\n      <td>0.01(0.378)<\/td>\n      <td>0.0(0.205)<\/td>\n      <td>0.03(0.493)<\/td>\n      <td>0.01(0.31)<\/td>\n      <td>0.04(0.489)<\/td>\n      <td>0.05(0.395)<\/td>\n      <td>0.05(0.491)<\/td>\n      <td>0.06(0.426)<\/td>\n    <\/tr>\n    <tr>\n      <th>ρ₁(τ)<\/th>\n      <td>0.97(0.201)<\/td>\n      <td>0.99(0.581)<\/td>\n      <td>1.0(0.753)<\/td>\n      <td>0.99(0.461)<\/td>\n      <td>1.0(0.649)<\/td>\n      <td>0.99(0.489)<\/td>\n      <td>0.99(0.412)<\/td>\n      <td>0.99(0.489)<\/td>\n      <td>0.99(0.418)<\/td>\n    <\/tr>\n    <tr>\n      <th>Half-lives (years)<\/th>\n      <td>2<\/td>\n      <td>10<\/td>\n      <td>37<\/td>\n      <td>9<\/td>\n      <td>21<\/td>\n      <td>9<\/td>\n      <td>6<\/td>\n      <td>8<\/td>\n      <td>7<\/td>\n    <\/tr>\n    <tr>\n      <th>tₙ(τ)<\/th>\n      <td>-1.21(0.201)<\/td>\n      <td>-0.45(0.684)<\/td>\n      <td>-0.14(0.821)<\/td>\n      <td>-0.76(0.586)<\/td>\n      <td>-0.28(0.751)<\/td>\n      <td>-0.77(0.573)<\/td>\n      <td>-0.95(0.484)<\/td>\n      <td>-0.65(0.568)<\/td>\n      <td>-0.59(0.477)<\/td>\n    <\/tr>\n    <tr>\n      <th>QKS<\/th>\n      <td>1.2(0.838)<\/td>\n      <td><\/td>\n      <td><\/td>\n      <td><\/td>\n      <td><\/td>\n      <td><\/td>\n      <td><\/td>\n      <td><\/td>\n      <td><\/td>\n    <\/tr>\n    <tr>\n      <th rowspan=\"5\" valign=\"top\">Kyrgyz Republic<\/th>\n      <th>α₀(τ)<\/th>\n      <td>0.11(0.291)<\/td>\n      <td>0.01(0.336)<\/td>\n      <td>0.03(0.412)<\/td>\n      <td>0.04(0.431)<\/td>\n      <td>0.02(0.314)<\/td>\n      <td>0.08(0.295)<\/td>\n      <td>0.13(0.149)<\/td>\n      <td>0.13(0.173)<\/td>\n      <td>0.08(0.459)<\/td>\n    <\/tr>\n    <tr>\n      <th>ρ₁(τ)<\/th>\n      <td>0.97(0.311)<\/td>\n      <td>0.99(0.66)<\/td>\n      <td>0.99(0.604)<\/td>\n      <td>0.99(0.584)<\/td>\n      <td>0.99(0.664)<\/td>\n      <td>0.98(0.317)<\/td>\n      <td>0.97(0.16)<\/td>\n      <td>0.97(0.188)<\/td>\n      <td>0.99(0.465)<\/td>\n    <\/tr>\n    <tr>\n      <th>Half-lives (years)<\/th>\n      <td>2<\/td>\n      <td>12<\/td>\n      <td>7<\/td>\n      <td>7<\/td>\n      <td>12<\/td>\n      <td>4<\/td>\n      <td>2<\/td>\n      <td>2<\/td>\n      <td>4<\/td>\n    <\/tr>\n    <tr>\n      <th>tₙ(τ)<\/th>\n      <td>-1.63(0.171)<\/td>\n      <td>-0.4(0.704)<\/td>\n      <td>-0.87(0.599)<\/td>\n      <td>-0.88(0.6)<\/td>\n      <td>-0.51(0.733)<\/td>\n      <td>-1.67(0.27)<\/td>\n      <td>-3.13(0.013)**<\/td>\n      <td>-3.13(0.01)***<\/td>\n      <td>-0.72(0.52)<\/td>\n    <\/tr>\n    <tr>\n      <th>QKS<\/th>\n      <td>3.14(0.068)*<\/td>\n      <td><\/td>\n      <td><\/td>\n      <td><\/td>\n      <td><\/td>\n      <td><\/td>\n      <td><\/td>\n      <td><\/td>\n      <td><\/td>\n    <\/tr>\n    <tr>\n      <th rowspan=\"5\" valign=\"top\">Moldova<\/th>\n      <th>α₀(τ)<\/th>\n      <td>-0.02(0.156)<\/td>\n      <td>-0.01(0.111)<\/td>\n      <td>-0.0(0.155)<\/td>\n      <td>0.01(0.243)<\/td>\n      <td>0.04(0.405)<\/td>\n      <td>0.08(0.223)<\/td>\n      <td>0.09(0.148)<\/td>\n      <td>0.11(0.114)<\/td>\n      <td>0.14(0.236)<\/td>\n    <\/tr>\n    <tr>\n      <th>ρ₁(τ)<\/th>\n      <td>1.0(0.812)<\/td>\n      <td>1.0(0.888)<\/td>\n      <td>1.0(0.861)<\/td>\n      <td>1.0(0.757)<\/td>\n      <td>0.99(0.447)<\/td>\n      <td>0.98(0.265)<\/td>\n      <td>0.98(0.173)<\/td>\n      <td>0.98(0.137)<\/td>\n      <td>0.97(0.273)<\/td>\n    <\/tr>\n    <tr>\n      <th>Half-lives (years)<\/th>\n      <td>∞<\/td>\n      <td>∞<\/td>\n      <td>268<\/td>\n      <td>29<\/td>\n      <td>7<\/td>\n      <td>4<\/td>\n      <td>3<\/td>\n      <td>3<\/td>\n      <td>2<\/td>\n    <\/tr>\n    <tr>\n      <th>tₙ(τ)<\/th>\n      <td>0.05(0.856)<\/td>\n      <td>0.12(0.906)<\/td>\n      <td>-0.04(0.864)<\/td>\n      <td>-0.31(0.779)<\/td>\n      <td>-1.52(0.286)<\/td>\n      <td>-2.95(0.024)**<\/td>\n      <td>-3.45(0.004)***<\/td>\n      <td>-3.26(0.005)***<\/td>\n      <td>-2.31(0.065)*<\/td>\n    <\/tr>\n    <tr>\n      <th>QKS<\/th>\n      <td>3.45(0.029)**<\/td>\n      <td><\/td>\n      <td><\/td>\n      <td><\/td>\n      <td><\/td>\n      <td><\/td>\n      <td><\/td>\n      <td><\/td>\n      <td><\/td>\n    <\/tr>\n    <tr>\n      <th rowspan=\"5\" valign=\"top\">Russian Federation<\/th>\n      <th>α₀(τ)<\/th>\n      <td>0.1(0.332)<\/td>\n      <td>0.06(0.415)<\/td>\n      <td>0.09(0.148)<\/td>\n      <td>0.07(0.158)<\/td>\n      <td>0.07(0.163)<\/td>\n      <td>0.08(0.135)<\/td>\n      <td>0.09(0.084)<\/td>\n      <td>0.1(0.11)<\/td>\n      <td>0.2(0.132)<\/td>\n    <\/tr>\n    <tr>\n      <th>ρ₁(τ)<\/th>\n      <td>0.97(0.381)<\/td>\n      <td>0.98(0.466)<\/td>\n      <td>0.98(0.182)<\/td>\n      <td>0.98(0.178)<\/td>\n      <td>0.98(0.2)<\/td>\n      <td>0.98(0.167)<\/td>\n      <td>0.98(0.107)<\/td>\n      <td>0.98(0.137)<\/td>\n      <td>0.96(0.159)<\/td>\n    <\/tr>\n    <tr>\n      <th>Half-lives (years)<\/th>\n      <td>2<\/td>\n      <td>4<\/td>\n      <td>3<\/td>\n      <td>3<\/td>\n      <td>4<\/td>\n      <td>4<\/td>\n      <td>3<\/td>\n      <td>3<\/td>\n      <td>1<\/td>\n    <\/tr>\n    <tr>\n      <th>tₙ(τ)<\/th>\n      <td>-1.09(0.364)<\/td>\n      <td>-1.03(0.474)<\/td>\n      <td>-2.23(0.058)*<\/td>\n      <td>-2.28(0.061)*<\/td>\n      <td>-2.25(0.083)*<\/td>\n      <td>-2.34(0.069)*<\/td>\n      <td>-2.38(0.033)**<\/td>\n      <td>-2.57(0.013)**<\/td>\n      <td>-2.42(0.024)**<\/td>\n    <\/tr>\n    <tr>\n      <th>QKS<\/th>\n      <td>2.57(0.145)<\/td>\n      <td><\/td>\n      <td><\/td>\n      <td><\/td>\n      <td><\/td>\n      <td><\/td>\n      <td><\/td>\n      <td><\/td>\n      <td><\/td>\n    <\/tr>\n    <tr>\n      <th rowspan=\"5\" valign=\"top\">Tajikistan<\/th>\n      <th>α₀(τ)<\/th>\n      <td>0.4(0.014)**<\/td>\n      <td>0.23(0.03)*<\/td>\n      <td>0.08(0.147)<\/td>\n      <td>0.06(0.213)<\/td>\n      <td>0.08(0.173)<\/td>\n      <td>0.06(0.3)<\/td>\n      <td>-0.05(0.004)***<\/td>\n      <td>-0.03(0.017)**<\/td>\n      <td>-0.05(0.008)**<\/td>\n    <\/tr>\n    <tr>\n      <th>ρ₁(τ)<\/th>\n      <td>0.91(0.013)**<\/td>\n      <td>0.95(0.027)**<\/td>\n      <td>0.98(0.143)<\/td>\n      <td>0.99(0.183)<\/td>\n      <td>0.98(0.157)<\/td>\n      <td>0.99(0.262)<\/td>\n      <td>1.01(0.996)<\/td>\n      <td>1.01(0.981)<\/td>\n      <td>1.02(0.988)<\/td>\n    <\/tr>\n    <tr>\n      <th>Half-lives (years)<\/th>\n      <td>1<\/td>\n      <td>1<\/td>\n      <td>3<\/td>\n      <td>4<\/td>\n      <td>3<\/td>\n      <td>4<\/td>\n      <td>∞<\/td>\n      <td>∞<\/td>\n      <td>∞<\/td>\n    <\/tr>\n    <tr>\n      <th>tₙ(τ)<\/th>\n      <td>-3.94(0.001)***<\/td>\n      <td>-3.12(0.008)***<\/td>\n      <td>-1.16(0.321)<\/td>\n      <td>-1.07(0.38)<\/td>\n      <td>-1.51(0.302)<\/td>\n      <td>-0.96(0.512)<\/td>\n      <td>0.87(0.972)<\/td>\n      <td>0.73(0.963)<\/td>\n      <td>0.61(0.938)<\/td>\n    <\/tr>\n    <tr>\n      <th>QKS<\/th>\n      <td>3.94(0.006)***<\/td>\n      <td><\/td>\n      <td><\/td>\n      <td><\/td>\n      <td><\/td>\n      <td><\/td>\n      <td><\/td>\n      <td><\/td>\n      <td><\/td>\n    <\/tr>\n    <tr>\n      <th rowspan=\"5\" valign=\"top\">Ukraine<\/th>\n      <th>α₀(τ)<\/th>\n      <td>-0.1(0.023)**<\/td>\n      <td>0.0(0.345)<\/td>\n      <td>0.09(0.099)<\/td>\n      <td>0.14(0.03)*<\/td>\n      <td>0.15(0.029)*<\/td>\n      <td>0.16(0.029)*<\/td>\n      <td>0.11(0.091)<\/td>\n      <td>0.19(0.037)*<\/td>\n      <td>0.32(0.016)**<\/td>\n    <\/tr>\n    <tr>\n      <th>ρ₁(τ)<\/th>\n      <td>1.02(0.973)<\/td>\n      <td>1.0(0.661)<\/td>\n      <td>0.98(0.11)<\/td>\n      <td>0.97(0.037)**<\/td>\n      <td>0.97(0.031)**<\/td>\n      <td>0.97(0.03)**<\/td>\n      <td>0.98(0.089)*<\/td>\n      <td>0.96(0.04)**<\/td>\n      <td>0.94(0.016)**<\/td>\n    <\/tr>\n    <tr>\n      <th>Half-lives (years)<\/th>\n      <td>∞<\/td>\n      <td>18<\/td>\n      <td>3<\/td>\n      <td>2<\/td>\n      <td>2<\/td>\n      <td>2<\/td>\n      <td>3<\/td>\n      <td>2<\/td>\n      <td>1<\/td>\n    <\/tr>\n    <tr>\n      <th>tₙ(τ)<\/th>\n      <td>0.42(0.942)<\/td>\n      <td>-0.19(0.737)<\/td>\n      <td>-1.74(0.144)<\/td>\n      <td>-3.53(0.007)***<\/td>\n      <td>-3.34(0.007)***<\/td>\n      <td>-3.04(0.011)**<\/td>\n      <td>-1.69(0.136)<\/td>\n      <td>-2.22(0.056)*<\/td>\n      <td>-2.98(0.01)***<\/td>\n    <\/tr>\n    <tr>\n      <th>QKS<\/th>\n      <td>3.53(0.024)**<\/td>\n      <td><\/td>\n      <td><\/td>\n      <td><\/td>\n      <td><\/td>\n      <td><\/td>\n      <td><\/td>\n      <td><\/td>\n      <td><\/td>\n    <\/tr>\n  <\/tbody>\n<\/table>\n<\/div>",
+                    "type":"html"
+                  }
+                ]
+              }
+            ],
+            "language":"PYTHON",
+            "inputCollapsed":false,
+            "outputCollapsed":false
+          },
+          {
+            "type":"CODE",
+            "text":"",
+            "outputs":[
+              {
+                "stdout":"",
+                "stderr":"",
+                "outputReprs":[
+                  
+                ],
+                "displayData":[
+                  
+                ]
+              }
+            ],
+            "language":"PYTHON",
+            "inputCollapsed":false,
+            "outputCollapsed":false
+          }
+        ]
+      }
+    ],
+    "packages":[
+      {
+        "name":"numba",
+        "source":"CONDA"
+      },
+      {
+        "name":"openpyxl",
+        "source":"CONDA"
+      }
+    ],
+    "kernelType":"IPYTHON",
+    "language":"PYTHON"
+  }
+}
