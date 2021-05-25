@@ -3,7 +3,6 @@ channels:
   - defaults
   - conda-forge
 dependencies:
-  - jupyter_contrib_nbextensions
   - numpy
   - pandas
   - scipy
