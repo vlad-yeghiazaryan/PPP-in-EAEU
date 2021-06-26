@@ -3,14 +3,13 @@ import numpy as np
 import pandas as pd
 
 # Unit root
-from quantileADF import bootstraps
+from quantileADF import QADF, bootstraps
 
 # Tests and function
 from statsmodels.distributions.empirical_distribution import ECDF
 
 # Utilities
 import time
-import numba
 
 def oneTailUpper(value, ecdfValue, significanceLevels):
     pValue = round(1 - ecdfValue, 3)
@@ -58,19 +57,20 @@ def customReport(CountryQADF, results, significanceLevels, dropColumns=None):
     
     return report
 
-def countryReport(y, model, quantiles, repetitions, significanceLevels, dropColumns=None):
+def countryReport(model, quantiles, repetitions, significanceLevels, dropColumns=None):
         # Start timer
         t1 = time.time()
-        # Run once to get final values and optimal lags     
-        CountryQADF = model.fitForQuantiles(y, quantiles)
+        # Run once to get final values and optimal lags 
+        name = model.endog.name
+        CountryQADF = model.fitForQuantiles(quantiles)
         # Generate bootstrap samples       
-        boots = bootstraps(y, CountryQADF['Lags'][0.1], repetitions)
+        boots = bootstraps(model.endog, CountryQADF['Lags'][0.1], repetitions)
         # Get the bootstrap statistics    
-        results = pd.concat([model.fitForQuantiles(boots[yStar], quantiles) for yStar in boots])
+        results = pd.concat([model.setup(boots[yStar]).fitForQuantiles(quantiles) for yStar in boots])
         # Customize the final output     
         report = customReport(CountryQADF, results, significanceLevels, dropColumns)
         # Print time spent
-        print(f'{y.name} finished in: {round(time.time() - t1, 2)}s')
+        print(f'{name} finished in: {round(time.time() - t1, 2)}s')
         return (report, results)
 
 def funcTimer(func):
@@ -84,14 +84,14 @@ def funcTimer(func):
     return timedFunc
 
 @funcTimer
-@numba.jit(forceobj=True, parallel=True)
-def reportCountries(data, model, quantiles, repetitions, significanceLevels=[0.01,0.05,0.1], dropColumns=None):
+def reportCountries(data, modelParams, quantiles, repetitions, significanceLevels=[0.01,0.05,0.1], dropColumns=None):
     countriesReport = []
     resultsAll = []
 
     for country in data:
         y = data[country]
-        countryInfo, results = countryReport(y, model, quantiles, repetitions, significanceLevels, dropColumns)
+        model = QADF(y, **modelParams)
+        countryInfo, results = countryReport(model, quantiles, repetitions, significanceLevels, dropColumns)
         resultsAll.append(results)
         countriesReport.append(countryInfo)
     report = pd.concat(countriesReport)
