@@ -4,11 +4,11 @@ from scipy.stats import norm
 from statsmodels.api import add_constant, OLS, QuantReg
 from statsmodels.tsa.stattools import adfuller, lagmat, add_trend
 from statsmodels.tsa.ar_model import AutoReg
-import matplotlib.pyplot as plt
+from statsmodels.distributions.empirical_distribution import ECDF
 import numba
 
 
-class QADF:
+class QTAR:
     r"""Quantile unit root test
 
     Based on the Koenker, R., Xiao, Z., 2004. methodology.
@@ -38,35 +38,42 @@ class QADF:
     cv            - 1%, 5%, 10% critical values for the estimated δ².
 
     """
-
-    def __init__(self, endog, model='c', pmax=5, ic='AIC', exog=None):
+    def __init__(self, endog, threshold_dummy, model='c', pmax=5, ic='AIC', exog=None):
         # setup
-        self.setup(endog, model, pmax, ic, exog)
-
-    def setup(self, endog, model=None, pmax=None, ic=None, exog=None):
+        self.setup(endog, threshold_dummy, model, pmax, ic, exog)
+        
+    def setup(self, endog, threshold_dummy=None, model=None, pmax=None, ic=None, exog=None):
         # Erase previous results
         self.results = None
-
+        
         # Custom instance changes
+        if type(threshold_dummy) != type(None):
+            self.threshold_dummy = threshold_dummy
         if model != None:
             self.model = model
         if pmax != None:
             self.pmax = pmax
         if ic != None:
             self.ic = ic
-
+        
         if type(endog) != pd.Series:
             self.endog = pd.Series(endog, name='y')
             self.endog_original = pd.Series(endog, name='y')
         else:
-            self.endog = endog
             self.endog_original = endog
+            self.endog = endog
 
         # Creating endog and exog
-        y1 = pd.DataFrame(self.endog.shift(1)[1:]).add_suffix(
-            '.L1')  # creating lags
+        
+        # creating lags
+        y1 = pd.DataFrame(self.endog.shift(1)[1:]).add_suffix('.L1')
+        y1_pre = pd.DataFrame(y1.squeeze(axis=1)*(1 - np.array(self.threshold_dummy[1:]))
+                             ).add_prefix('pre-'+self.threshold_dummy.name+'_')
+        y1_post = pd.DataFrame(y1.squeeze(axis=1)*np.array(self.threshold_dummy[1:])
+                              ).add_prefix('post-'+self.threshold_dummy.name+'_')
+        
         dy = self.endog.diff(1)[1:]  # first difference
-        X = y1
+        X = pd.concat([y1_pre, y1_post], axis=1)
 
         resultsADF = adfuller(self.endog, maxlag=self.pmax,
                               regression=model, autolag=self.ic)
@@ -76,7 +83,7 @@ class QADF:
         if p > 0:
             dyl = pd.DataFrame(lagmat(dy, maxlag=p), index=dy.index,
                                columns=['Diff.L' + str(i) for i in range(1, 1 + p)])[p:]
-            X = pd.concat([y1[p:], dyl], axis=1)
+            X = pd.concat([y1_pre[p:], y1_post[p:], dyl], axis=1)
         # If the ic decides not to include lags
         else:
             X = X[p:]
@@ -85,6 +92,8 @@ class QADF:
         self.lags = p
         self.extraExog = exog[p + 1:] if type(exog) != type(None) else None
         self.L1 = y1[p:]
+        self.L1_pre = y1_pre[p:]
+        self.L1_post = y1_post[p:]
         self.diff = dy[p:]
         self.diffLags = dyl if self.lags > 0 else None
         self.endog = self.endog[p + 1:]
@@ -112,7 +121,8 @@ class QADF:
         df = pd.DataFrame(results)
 
         # Adding the QKS statistic
-        df['QKS'] = max(map(abs, df['tₙ(τ)']))
+        df['pre-QKS'] = max(map(abs, df['pre-tₙ(τ)']))
+        df['post-QKS'] = max(map(abs, df['post-tₙ(τ)']))
         df['name'] = self.endog.name
         df.set_index('quantile', inplace=True)
         return df
@@ -123,14 +133,17 @@ class QADF:
         # Running the quantile regression
         n = len(self.endog)
         qOut1 = QuantReg(self.endog, self.exog).fit(q=tau)
-
+        olsFit = OLS(self.endog, self.exog).fit()
+        
         # calculating alpha and rho
         alpha_tau = qOut1.params[0]
-        rho_tau = qOut1.params[1]
-        rho_ols = OLS(self.endog, self.exog).fit().params[1]
+        pre_rho_tau = qOut1.params[1]
+        post_rho_tau = qOut1.params[2]
+        pre_rho_ols = olsFit.params[1]
+        post_rho_ols = olsFit.params[2]
 
-        # Estimating Half-lifes
-        hl = np.log(0.5) / np.log(np.abs(rho_tau))
+        # Estimating Half-lifes pre_rho_tau
+        hl = np.log(0.5) / np.log(np.abs(post_rho_tau))
         hl = '∞' if hl < 0 else round(hl, 3)
 
         # calculating delta2 using covariance
@@ -157,9 +170,9 @@ class QADF:
 
         # Defining some inputs
         if self.model == 'c':
-            X = add_constant(self.L1)
+            X = add_constant(pd.concat([self.L1_pre, self.L1_post], axis=1))
         elif self.model == 'ct':
-            X = add_trend(add_constant(self.L1), 'ct')
+            X = add_trend(add_constant(pd.concat([self.L1_pre, self.L1_post], axis=1)), 'ct')
         else:
             raise ValueError(
                 'Model type is not recognized: ' + str(self.model))
@@ -169,7 +182,7 @@ class QADF:
         # The common case
         if self.lags > 0:
             X = self.exog
-
+        
         # Running the other 2 QuantRegs
         qOut2 = QuantReg(self.endog, X).fit(q=tau + h)
         qOut3 = QuantReg(self.endog, X).fit(q=tau - h)
@@ -203,25 +216,34 @@ class QADF:
 
         # aligning matrices
         xx = np.array(xx)
-        y1 = np.array(self.L1)
+        y1_pre = np.array(self.L1_pre)
+        y1_post = np.array(self.L1_post)
 
         # Constructing a NxN matrix
         PX = np.eye(len(xx)) - \
             xx.dot(np.linalg.inv(np.dot(xx.T, xx))).dot(xx.T)
         fzCrt = fz / np.sqrt(tau * (1 - tau))
-        eqPX = np.sqrt((y1.T.dot(PX).dot(y1))[0][0])
+        
+        # We will preform two unit root test for the series before 
+        # and after the threshold
+        eqPX_pre = np.sqrt((y1_pre.T.dot(PX).dot(y1_pre))[0][0])
+        eqPX_post = np.sqrt((y1_post.T.dot(PX).dot(y1_post))[0][0])
 
-        # QADF statistic
-        QURadf = fzCrt * eqPX * (rho_tau - 1)
+        # QADF statistics for y1_pre and y1_post
+        QURtadf_pre = fzCrt * eqPX_pre * (pre_rho_tau - 1)
+        QURtadf_post = fzCrt * eqPX_post * (post_rho_tau - 1)
         cv = self.crit_QRadf(delta2, self.model)
 
         # Exposing variables
         self.tau = tau
         self.alpha_tau = alpha_tau
-        self.rho_tau = rho_tau
-        self.rho_ols = rho_ols
+        self.pre_rho_tau = pre_rho_tau
+        self.post_rho_tau = post_rho_tau
+        self.pre_rho_ols = pre_rho_ols
+        self.post_rho_ols = post_rho_ols
         self.delta2 = delta2
-        self.QURadf = QURadf
+        self.QURtadf_pre = QURtadf_pre
+        self.QURtadf_post = QURtadf_post
         self.hl = hl
         self.regression = qOut1
         self.cvs = {
@@ -232,12 +254,16 @@ class QADF:
         self.results = {
             'quantile': round(self.tau, 2),
             'Lags': self.lags,
-            'α\u2080(τ)': round(self.alpha_tau, 3),
-            'ρ\u2081(τ)': round(self.rho_tau, 3),
-            'ρ\u2081(OLS)': round(self.rho_ols, 3),
+            'α\u2080(τ)': round(self.alpha_tau, 4),
+            'pre-ρ\u2081(τ)': round(self.pre_rho_tau, 4),
+            'post-ρ\u2082(τ)': round(self.post_rho_tau, 4),
+            'pre-ρ\u2081(OLS)': round(self.pre_rho_ols, 4),
+            'post-ρ\u2082(OLS)': round(self.post_rho_ols, 4),
+            'ρ\u2081(τ)-ρ\u2082(τ)':round(self.pre_rho_tau-self.post_rho_tau, 5),
             'δ\u00B2': round(self.delta2, 3),
             'Half-lives': self.hl,
-            't\u2099(τ)': round(self.QURadf, 3),
+            'pre-t\u2099(τ)': round(self.QURtadf_pre, 4),
+            'post-t\u2099(τ)': round(self.QURtadf_post, 4),
             'CV10%': round(self.cvs['CV10%'], 4),
             'CV5%': round(self.cvs['CV5%'], 4),
             'CV1%': round(self.cvs['CV1%'], 4)
@@ -335,202 +361,55 @@ class QADF:
             print(out)
         else:
             return object.__repr__(self)
+        
 
-# Function that creates a bootstrap following Koenker and Xiao's (2004) resampling procedure
-
-
-def createBootstrap(y, lags, random_state=42):
-    # Data
-    dy = y.diff()[1:]
-    np.random.seed(random_state)
-    q = lags if lags > 0 else 1
-
-    # 1) The q-order autoregression
-    arModel = AutoReg(dy, lags=q, old_names=False, trend='n').fit()
-    betas = np.array(arModel.params)
-    resid = arModel.resid
-
-    # 2) Bootstrap sample from the empirical distribution of the centred residuals
-    cResid = resid - resid.mean()
-    residStar = np.random.choice(cResid, len(cResid))
-
-    # 3) where dy* = dy_j, j=1,..,q
-    dyStar = list(dy[:q])
-    for i in range(len(residStar)):
-        dyStar_t = (betas * dyStar[-q:]).sum() + residStar[i]
-        dyStar.append(dyStar_t)
-
-    # 4) Bootstrap samples of levels y_1* = y_1
-    yStar = [y[0]]
-    for i in range(len(dyStar)):
-        yStar_t = yStar[i] + dyStar[i]
-        yStar.append(yStar_t)
-
-    # Star series setup
-    yStar = pd.Series(yStar, index=y.index[:len(
-        y)], name=y.name + 'Star' + str(random_state))
-    return yStar
-
-# Returns a dataframe of bootstraps
+# Code for reporting values
 
 
-def bootstraps(y, lags, n_replications):
-    boots = [createBootstrap(y, lags, random_state=i)
-             for i in range(n_replications)]
-    return pd.DataFrame(boots).T
+def oneTailUpper(value, ecdfValue, significanceLevels, rounding=2):
+    pValue = round(1 - ecdfValue, 3)
+    starValue = str(round(value, rounding)) + f'({pValue})' + ''.join(
+        ['*' for t in significanceLevels if pValue <= t])
+    return starValue
 
-# QAR class with a fit function that returns a statsmodels object
+def oneTailLower(value, ecdfValue, significanceLevels, rounding=2):
+    pValue = round(ecdfValue, 3)
+    starValue = str(round(value, rounding)) + f'({pValue})' + ''.join(
+        ['*' for t in significanceLevels if pValue <= t])
+    return starValue
 
+def twoTail(value, ecdfValue, significanceLevels, rounding=2):
+    pValue = round(min(ecdfValue, 1 - ecdfValue), 3) 
+    starValue = str(round(value, rounding)) + f'({pValue})' + ''.join(
+        ['*' for t in significanceLevels if pValue <= t/2])
+    return starValue
 
-class QAR():
-    """Quantile autoregressive model
-    """
-    defaultQuantiles = np.arange(0.1, 1, 0.1)
+def addStars(row, test, significanceLevels, rounding=2):
+    boots = row[1]
+    value = row[0]
+    ecdfFunc = ECDF(boots, side='left')
+    ecdfValue = ecdfFunc(value)
+    starValue = test(value, ecdfValue, significanceLevels, rounding)
+    return starValue
 
-    def __init__(self, y, exog=None, pmax=12, regression='c', ic='AIC'):
-        """
-        Parameters
-        ----------
-        y : array or dataframe
-            endogenous/response variable.
-        pmax : int
-            Maximum lag which is included in test.
-        regression : {"c","ct","ctt","nc"}
-            Constant and trend order to include in regression.
-        ic : {"AIC", "BIC", "t-stat", None}
-            Information criteria to use when automatically determining the lag.
-        """
-        self.pmax = pmax
-        self.regression = regression
-        self.ic = ic
-        self.name = y.name
-        self.symbols = ['α₀', 'ρ₁']
+def QTAR_CustomRport(CountryQADF, results, significanceLevels, dropColumns=None):
+    values =  ['α₀(τ)', 'pre-ρ₁(τ)', 'post-ρ₂(τ)', 'pre-ρ₁(OLS)', 'post-ρ₂(OLS)', 
+               'pre-tₙ(τ)', 'post-tₙ(τ)', 'ρ₁(τ)-ρ₂(τ)']
+    for value in values:
+        test = twoTail if value == 'α₀(τ)' else oneTailLower
+        rounding = 2 if value != 'ρ₁(τ)-ρ₂(τ)' else 4
+        CountryQADF[value] = pd.concat([CountryQADF, results.groupby('quantile')[value].apply(lambda x:np.array(x))], axis=1)[value].apply(addStars, axis=1, args=[test, significanceLevels, rounding])
+    CountryQADF['pre-QKS'] = addStars([CountryQADF['pre-QKS'].mean(), results.groupby('name')['pre-QKS'].mean()], oneTailUpper, significanceLevels)
+    CountryQADF.loc[0.2:, 'pre-QKS'] = ''
+    CountryQADF['post-QKS'] = addStars([CountryQADF['post-QKS'].mean(), results.groupby('name')['post-QKS'].mean()], oneTailUpper, significanceLevels)
+    CountryQADF.loc[0.2:, 'post-QKS'] = ''
+    CountryQADF['Half-lives'] = CountryQADF['Half-lives'].apply(lambda x: round(x/12) if not isinstance(x, str) else x)
+    CountryQADF.rename(columns={'Half-lives':'Half-lives (years)'}, inplace=True)
+    CountryQADF.drop(columns=dropColumns, inplace=True) if dropColumns != None else None
 
-        # Setup for endog and exog
-        L1_y = lagmat(y, maxlag=1, use_pandas=True)[1:]  # creating lags
-        exog = exog[1:] if exog is not None else exog
-
-        # Identifying optimal lags
-        resultsADF = adfuller(y, self.pmax, self.regression, self.ic)
-        lags = resultsADF[2]
-
-        Ldy = lagmat(y.diff()[1:], maxlag=lags,
-                     use_pandas=True).add_prefix('Δ')
-        X = pd.concat([L1_y, Ldy, exog], axis=1)
-
-        # endog and exog
-        self.y = y[lags + 1:]
-        self.X = add_constant(X)[lags:]
-
-    def fit(self, q=0.5):
-        # Running the quantile regression
-        return QuantReg(self.y, self.X).fit(q=q)
-
-    # Internal param generation function
-    def _compareFit(self, q):
-        # QAR
-        qar = self.fit(q)
-        rhoName = qar.params.index[1]
-
-        #  alpha_tau
-        alpha_tau = qar.params[0]
-        alpha_tauLowerCI = qar.conf_int().loc['const'][0]
-        alpha_tauUpperCI = qar.conf_int().loc['const'][1]
-
-        #  rho_tau
-        rho_tau = qar.params[1]
-        rho_tauLowerCI = qar.conf_int().loc[rhoName][0]
-        rho_tauUpperCI = qar.conf_int().loc[rhoName][1]
-
-        #  OLS
-        ols = OLS(self.y, self.X).fit()
-        rhoName = ols.params.index[1]
-
-        #  alphaOLS
-        alphaOLS = ols.params[0]
-        alphaOLSLowerCI = ols.conf_int().loc['const'][0]
-        alphaOLSUpperCI = ols.conf_int().loc['const'][1]
-
-        #  rhoOLS
-        rhoOLS = ols.params[1]
-        rhoOLSLowerCI = ols.conf_int().loc[rhoName][0]
-        rhoOLSUpperCI = ols.conf_int().loc[rhoName][1]
-
-        params = {
-            'quantile': q,
-            'α₀(τ)': alpha_tau,
-            'α₀(τ):LB': alpha_tauLowerCI,
-            'α₀(τ):UB': alpha_tauUpperCI,
-            'α₀(OLS)': alphaOLS,
-            'α₀(OLS):LB': alphaOLSLowerCI,
-            'α₀(OLS):UB': alphaOLSUpperCI,
-            'ρ₁(τ)': rho_tau,
-            'ρ₁(τ):LB': rho_tauLowerCI,
-            'ρ₁(τ):UB': rho_tauUpperCI,
-            'ρ₁(OLS)': rhoOLS,
-            'ρ₁(OLS):LB': rhoOLSLowerCI,
-            'ρ₁(OLS):UB': rhoOLSUpperCI,
-        }
-        return params
-
-    # Creates a single plot for a parameter
-    def _paramPlot(self, param, index, quantiles, fig, nrows, ncolumns):
-        # Fitting for many quantiles and plotting
-        fits = pd.DataFrame([self._compareFit(q) for q in quantiles])
-        x = fits['quantile']
-        param_tau = param + '(τ)'
-        param_tauLower = param_tau + ':LB'
-        param_tauUpper = param_tau + ':UB'
-        paramOLS = param + '(OLS)'
-        paramOLSLower = paramOLS + ':LB'
-        paramOLSUpper = paramOLS + ':UB'
-
-        axs = fig.add_subplot(nrows, ncolumns, index)
-        # α₀(τ) over quantiles
-        axs.plot(x, fits[param_tau], color='black', label=param_tau)
-        axs.plot(x, fits[param_tauLower], linestyle='dotted', color='black')
-        axs.plot(x, fits[param_tauUpper], linestyle='dotted', color='black')
-
-        # OLS constant α₀(OLS)
-        axs.plot(x, fits[paramOLS], color='blue', label=paramOLS)
-        axs.plot(x, fits[paramOLSLower], linestyle='dotted', color='blue')
-        axs.plot(x, fits[paramOLSUpper], linestyle='dotted', color='blue')
-
-        axs.set_ylabel(param, fontsize=15)
-        axs.legend(loc='lower right')
-
-    def summaryPlot(self, quantiles=defaultQuantiles, figsize=(8, 4), nrows=2, ncolumns=1):
-        # For each symbol create a plot
-        fig = plt.figure(figsize=figsize)
-        for index, symbol in enumerate(self.symbols):
-            self._paramPlot(symbol, (index + 1), quantiles,
-                            fig, nrows, ncolumns)
-
-        # common figure parameters
-        fig.suptitle(self.name)
-        plt.xlabel('Quantiles', fontsize=11)
-        return fig
-
-# Plotting data for multiple series on a 2xn plane with 'α₀' and 'ρ₁' as main rows
-
-
-def comparisonPlot(data, figsize=(15, 8), quantiles=QAR.defaultQuantiles):
-    n = len(data.columns)
-    fig = plt.figure(figsize=figsize)
-    for index, country in enumerate(data):
-        y = data[country]
-        model = QAR(y)
-        for s_index, symbol in enumerate(model.symbols):
-            uback = index + (n * s_index + 1)
-            model._paramPlot(symbol, uback, quantiles,
-                             fig, nrows=2, ncolumns=n)
-        fig.axes[index * 2].set_title(model.name)
-    return fig
-
-    # Cleanup
-    fig.axes[0].get_shared_y_axes().join(*fig.axes[::2])
-    fig.axes[1].get_shared_y_axes().join(*fig.axes[1::2])
-    list(map(lambda axes: axes.set_xticklabels([]), fig.axes[::2]))
-    list(map(lambda axes: axes.set_yticklabels([]), fig.axes[2::2]))
-    list(map(lambda axes: axes.set_yticklabels([]), fig.axes[3::2]))
-    return fig
+    # final cleanup
+    report = CountryQADF.T.drop('name')
+    report['name']  = CountryQADF['name'][0.1]
+    report.set_index(['name',report.index], inplace=True)
+    
+    return report

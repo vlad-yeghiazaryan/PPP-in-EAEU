@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 
 # Unit root
-from quantileADF import QADF, bootstraps
+from quantileADF import bootstraps
 
 # Tests and function
 from statsmodels.distributions.empirical_distribution import ECDF
@@ -57,14 +57,15 @@ def customReport(CountryQADF, results, significanceLevels, dropColumns=None):
     
     return report
 
-def countryReport(model, quantiles, repetitions, significanceLevels, dropColumns=None):
+def countryReport(model, quantiles, repetitions, significanceLevels, customReport=customReport, dropColumns=None):
         # Start timer
         t1 = time.time()
         # Run once to get final values and optimal lags 
         name = model.endog.name
+        endog = model.endog_original
         CountryQADF = model.fitForQuantiles(quantiles)
         # Generate bootstrap samples       
-        boots = bootstraps(model.endog, CountryQADF['Lags'][0.1], repetitions)
+        boots = bootstraps(endog, CountryQADF['Lags'][0.1], repetitions)
         # Get the bootstrap statistics    
         results = pd.concat([model.setup(boots[yStar]).fitForQuantiles(quantiles) for yStar in boots])
         # Customize the final output     
@@ -84,14 +85,14 @@ def funcTimer(func):
     return timedFunc
 
 @funcTimer
-def reportCountries(data, modelParams, quantiles, repetitions, significanceLevels=[0.01,0.05,0.1], dropColumns=None):
+def reportCountries(data, modelBase, modelParams, quantiles, repetitions, significanceLevels=[0.01,0.05,0.1], customReport=customReport, dropColumns=None):
     countriesReport = []
     resultsAll = []
 
     for country in data:
         y = data[country]
-        model = QADF(y, **modelParams)
-        countryInfo, results = countryReport(model, quantiles, repetitions, significanceLevels, dropColumns)
+        model = modelBase(y, **modelParams)
+        countryInfo, results = countryReport(model, quantiles, repetitions, significanceLevels, customReport, dropColumns)
         resultsAll.append(results)
         countriesReport.append(countryInfo)
     report = pd.concat(countriesReport)
