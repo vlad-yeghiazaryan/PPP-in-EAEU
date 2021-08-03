@@ -10,6 +10,7 @@ from statsmodels.distributions.empirical_distribution import ECDF
 
 # Utilities
 import time
+from joblib import Parallel, delayed
 
 def oneTailUpper(value, ecdfValue, significanceLevels):
     pValue = round(1 - ecdfValue, 3)
@@ -57,6 +58,12 @@ def customReport(CountryQADF, results, significanceLevels, dropColumns=None):
     
     return report
 
+# The power of parallel processing
+def bootstrapResults(model, quantiles, boots):
+    def runBootstrap(model, quantiles, yStar):
+        return model.setup(yStar).fitForQuantiles(quantiles)
+    return pd.concat(Parallel(n_jobs=-1)(delayed(runBootstrap)(model, quantiles, boots[yStar]) for yStar in boots))
+
 def countryReport(model, quantiles, repetitions, significanceLevels, customReport=customReport, dropColumns=None):
         # Start timer
         t1 = time.time()
@@ -67,7 +74,7 @@ def countryReport(model, quantiles, repetitions, significanceLevels, customRepor
         # Generate bootstrap samples       
         boots = bootstraps(endog, CountryQADF['Lags'][0.1], repetitions)
         # Get the bootstrap statistics    
-        results = pd.concat([model.setup(boots[yStar]).fitForQuantiles(quantiles) for yStar in boots])
+        results = bootstrapResults(model, quantiles, boots)
         # Customize the final output     
         report = customReport(CountryQADF, results, significanceLevels, dropColumns)
         # Print time spent
